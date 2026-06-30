@@ -1,0 +1,7 @@
+command_odometry:
+  ros__parameters:
+    update_rate_hz: 50.0
+    command_timeout_s: 0.5
+    odom_frame: odom
+    base_frame: base_link
+    publish_tf: true
