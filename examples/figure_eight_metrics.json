@@ -1,0 +1,12 @@
+{
+  "closure_error_m": 1.8122924405184217e-14,
+  "duration_s": 25.132741228718313,
+  "final_x_m": -7.993605777301127e-15,
+  "final_y_m": 1.6264767310758543e-14,
+  "final_yaw_rad": -8.881784197001252e-16,
+  "integration_step_s": 0.2,
+  "net_displacement_m": 1.8122924405184217e-14,
+  "path_length_m": 12.566370614359156,
+  "sample_count": 127,
+  "scenario": "figure-eight"
+}
