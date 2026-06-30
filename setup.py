@@ -6,7 +6,7 @@ PACKAGE_NAME = "faultnav_robot"
 
 setup(
     name=PACKAGE_NAME,
-    version="0.1.0",
+    version="0.2.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     data_files=[
@@ -25,6 +25,7 @@ setup(
     entry_points={
         "console_scripts": [
             "command_odometry = faultnav_robot.odometry_node:main",
+            "faultnav-experiment = faultnav_robot.experiment_cli:main",
         ],
     },
 )
