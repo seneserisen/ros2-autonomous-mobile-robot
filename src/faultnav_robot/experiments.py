@@ -46,7 +46,7 @@ class ExperimentMetrics:
 def simulate_scenario(
     scenario: MotionScenario,
     integration_step_s: float = 0.05,
-    initial_state: RobotState = RobotState(),
+    initial_state: RobotState | None = None,
 ) -> tuple[ExperimentSample, ...]:
     """Execute a scenario with exact segment-boundary handling.
 
@@ -57,7 +57,7 @@ def simulate_scenario(
     if not isfinite(integration_step_s) or integration_step_s <= 0.0:
         raise ValueError("integration_step_s must be finite and positive")
 
-    state = initial_state
+    state = initial_state if initial_state is not None else RobotState()
     elapsed_s = 0.0
     travelled_distance_m = 0.0
     samples = [
@@ -193,7 +193,10 @@ def write_trajectory_svg(
     def project_y(value: float) -> float:
         return margin_top + (y_max - value) / y_span * plot_height
 
-    points = " ".join(f"{project_x(x_value):.2f},{project_y(y_value):.2f}" for x_value, y_value in zip(x_values, y_values, strict=True))
+    points = " ".join(
+        f"{project_x(x_value):.2f},{project_y(y_value):.2f}"
+        for x_value, y_value in zip(x_values, y_values, strict=True)
+    )
     start_x, start_y = project_x(x_values[0]), project_y(y_values[0])
     end_x, end_y = project_x(x_values[-1]), project_y(y_values[-1])
 
