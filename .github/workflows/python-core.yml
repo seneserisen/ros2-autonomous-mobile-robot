@@ -26,11 +26,23 @@ jobs:
           cache: pip
           cache-dependency-path: dev-requirements.txt
 
-      - name: Install development dependencies
-        run: python -m pip install --upgrade pip -r dev-requirements.txt
+      - name: Install package and development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . -r dev-requirements.txt
 
       - name: Lint
         run: ruff check src tests setup.py launch
 
       - name: Run unit tests
         run: pytest
+
+      - name: Validate installed experiment CLI
+        run: |
+          faultnav-experiment \
+            --scenario figure-eight \
+            --step 0.2 \
+            --output-dir artifacts/ci
+          test -s artifacts/ci/figure_eight_trajectory.csv
+          test -s artifacts/ci/figure_eight_metrics.json
+          test -s artifacts/ci/figure_eight_trajectory.svg

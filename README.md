@@ -2,72 +2,96 @@
 
 [![Python core validation](https://github.com/seneserisen/ros2-autonomous-mobile-robot/actions/workflows/python-core.yml/badge.svg)](https://github.com/seneserisen/ros2-autonomous-mobile-robot/actions/workflows/python-core.yml)
 
-Python-first ROS 2 project for building and evaluating a fault-aware autonomous mobile robot in
-simulation. The first milestone provides a tested differential-drive kinematics core and a ROS 2
-node that converts velocity commands into odometry and TF output.
+A Python-first ROS 2 engineering project for deterministic mobile-robot motion, odometry, reproducible experiments, and the gradual development of fault-aware autonomous navigation.
 
-## Current milestone
+## Engineering value
 
-Implemented:
+FaultNav is structured as a staged autonomy project rather than a single demonstration script. The current release shows:
 
-- exact constant-twist integration for a planar differential-drive/unicycle model;
-- typed and immutable robot-state representation;
-- `cmd_vel` subscription using `geometry_msgs/Twist`;
-- `odom` publication using `nav_msgs/Odometry`;
+- clean separation between mathematical models and ROS 2 interfaces;
+- exact differential-drive motion integration;
+- reproducible straight, circular, square, and figure-eight experiments;
+- CSV data, JSON metrics, and SVG engineering reports;
+- ROS 2 `cmd_vel`, odometry, parameters, launch files, and TF broadcasting;
+- stale-command handling that stops motion when command input expires;
+- typed Python modules, automated tests, linting, and multi-version CI.
+
+These features provide visible evidence of Python software engineering, robotics fundamentals, numerical modelling, test design, and technical documentation.
+
+## Reproduced trajectory
+
+![FaultNav figure-eight trajectory](examples/figure_eight_trajectory.svg)
+
+The committed figure-eight example was generated with a `0.2 s` integration step:
+
+| Metric | Reproduced value |
+|---|---:|
+| Commanded duration | 25.1327 s |
+| Travelled path | 12.5664 m |
+| Samples including initial state | 127 |
+| Final-position closure error | 1.812 × 10⁻¹⁴ m |
+
+The complete output is stored in [`examples/figure_eight_metrics.json`](examples/figure_eight_metrics.json).
+
+The closure result demonstrates deterministic numerical consistency under the documented analytical model. It is **not** a claim of physical localisation accuracy; real robots introduce encoder error, wheel slip, latency, dynamics, calibration error, and sensor noise.
+
+## Current capabilities
+
+### Deterministic experiment layer
+
+- reusable command-segment and scenario dataclasses;
+- exact handling of segment boundaries even when the fixed step does not divide the duration;
+- built-in `straight`, `circle`, `square`, and `figure-eight` scenarios;
+- path length, final pose, displacement, duration, sample count, and closure metrics;
+- dependency-free SVG trajectory reporting;
+- stable CSV and JSON artifact generation;
+- command-line workflow through `faultnav-experiment`.
+
+### ROS 2 layer
+
+- `geometry_msgs/Twist` subscription on `cmd_vel`;
+- `nav_msgs/Odometry` publication on `odom`;
 - `odom` to `base_link` TF broadcasting;
 - configurable update rate, frame names, TF output, and command timeout;
-- automatic zero-velocity fallback when commands become stale;
-- ROS 2 launch file and YAML configuration;
-- ROS-independent unit tests across Python 3.10–3.12;
-- Ruff linting and GitHub Actions validation.
+- zero-velocity fallback when the most recent command becomes stale;
+- `ament_python` packaging, YAML parameters, and launch support.
 
-This milestone is a software-in-the-loop foundation. It is not yet a complete autonomous-navigation
-stack and has not yet been validated against a physics simulator or physical robot.
+## Quick experiment without ROS 2
 
-## Architecture
+```bash
+git clone https://github.com/seneserisen/ros2-autonomous-mobile-robot.git
+cd ros2-autonomous-mobile-robot
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install -e .
 
-```text
-geometry_msgs/Twist (`cmd_vel`)
-              |
-              v
-     CommandOdometryNode
-       |              |
-       |              +--> stale-command safety stop
-       v
- exact unicycle integration
-       |
-       +--> nav_msgs/Odometry (`odom`)
-       |
-       +--> TF: `odom` -> `base_link`
+faultnav-experiment \
+  --scenario figure-eight \
+  --step 0.2 \
+  --output-dir artifacts/figure-eight
 ```
 
-See [docs/architecture.md](docs/architecture.md) for design decisions, frame ownership, limitations,
-and planned milestones.
-
-## Repository structure
+Generated artifacts:
 
 ```text
-.
-├── .github/workflows/python-core.yml
-├── config/faultnav.yaml
-├── docs/architecture.md
-├── launch/faultnav.launch.py
-├── resource/faultnav_robot
-├── src/faultnav_robot/
-│   ├── __init__.py
-│   ├── differential_drive.py
-│   └── odometry_node.py
-├── tests/test_differential_drive.py
-├── package.xml
-├── pyproject.toml
-├── setup.cfg
-└── setup.py
+artifacts/figure-eight/
+├── figure_eight_metrics.json
+├── figure_eight_trajectory.csv
+└── figure_eight_trajectory.svg
 ```
 
-## Build in a ROS 2 workspace
+Available scenarios:
 
-The package follows the `ament_python` layout. Place or clone it inside the `src` directory of a
-ROS 2 workspace:
+```bash
+faultnav-experiment --scenario straight
+faultnav-experiment --scenario circle
+faultnav-experiment --scenario square
+faultnav-experiment --scenario figure-eight
+```
+
+## Run as a ROS 2 package
+
+Place the repository inside a ROS 2 workspace:
 
 ```bash
 mkdir -p ~/faultnav_ws/src
@@ -79,44 +103,50 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-Launch the node:
+Launch the odometry node:
 
 ```bash
 ros2 launch faultnav_robot faultnav.launch.py
 ```
 
-Send a forward and rotational velocity command:
+Publish a velocity command:
 
 ```bash
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist \
   "{linear: {x: 0.5}, angular: {z: 0.3}}"
 ```
 
-Inspect the generated odometry:
+Inspect odometry:
 
 ```bash
 ros2 topic echo /odom
 ```
 
-The configured command timeout is `0.5 s`. After the one-shot command becomes stale, published
-velocity returns to zero and pose integration stops.
+The default command timeout is `0.5 s`. When the command becomes stale, the published velocity returns to zero and pose integration stops.
 
-## Run the Python core tests without ROS 2
+## Architecture
 
-The mathematical core has no ROS dependencies:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-python -m pip install -r dev-requirements.txt
-ruff check src tests setup.py launch
-pytest
+```text
+Built-in scenario / CLI                         ROS 2 command interface
+          |                                               |
+          v                                               v
+CommandSegment sequence                         geometry_msgs/Twist
+          |                                               |
+          v                                               v
+Exact constant-twist integration <------ shared kinematics core
+          |                                               |
+          +--> CSV trajectory                             +--> nav_msgs/Odometry
+          +--> JSON metrics                               +--> TF odom -> base_link
+          +--> SVG report                                 +--> command timeout stop
 ```
+
+The mathematical core has no ROS imports. It can therefore be tested with standard Python tooling and reused later by sensor simulation, state estimation, physics simulation, or hardware-interface nodes.
+
+See [`docs/architecture.md`](docs/architecture.md) for design decisions and frame ownership.
 
 ## Technical model
 
-For body-frame linear velocity `v`, yaw rate `omega`, heading `theta`, and interval `dt`, the
-straight-motion case is:
+For straight motion:
 
 ```text
 x_next     = x + v cos(theta) dt
@@ -124,7 +154,7 @@ y_next     = y + v sin(theta) dt
 theta_next = wrap(theta + omega dt)
 ```
 
-For non-zero yaw rate, the implementation uses the analytical circular-arc solution:
+For non-zero yaw rate, FaultNav uses the analytical circular-arc solution:
 
 ```text
 R          = v / omega
@@ -133,65 +163,89 @@ y_next     = y - R [cos(theta + omega dt) - cos(theta)]
 theta_next = wrap(theta + omega dt)
 ```
 
-This avoids the accumulated approximation error of first-order Euler integration when a constant
-command describes a circular arc.
+This avoids the accumulated approximation error of first-order Euler integration for constant curved motion.
 
-## Learning objectives
+## Validation and development workflow
 
-This repository is structured to develop practical competence in:
+```bash
+python -m pip install -r dev-requirements.txt
+ruff check src tests setup.py launch
+pytest
+```
 
-- Python package design, typing, dataclasses, and unit testing;
-- ROS 2 nodes, topics, messages, parameters, timers, and launch files;
-- odometry frames and TF publication;
-- differential-drive modelling and numerical integration;
-- repeatable experiments and measurable engineering results;
-- sensor fusion, fault injection, localisation, SLAM, and navigation in later milestones.
+The repository contains automated tests for:
+
+- straight, rotational, and constant-radius integration;
+- angle wrapping and invalid input handling;
+- built-in scenario definitions;
+- exact segment-duration handling;
+- circular-path closure;
+- deterministic repeatability;
+- CSV, JSON, and SVG artifact generation.
+
+GitHub Actions runs the Python validation matrix on Python 3.10, 3.11, and 3.12.
+
+## Repository structure
+
+```text
+.
+├── .github/workflows/python-core.yml
+├── config/faultnav.yaml
+├── docs/architecture.md
+├── examples/
+│   ├── figure_eight_metrics.json
+│   └── figure_eight_trajectory.svg
+├── launch/faultnav.launch.py
+├── resource/faultnav_robot
+├── src/faultnav_robot/
+│   ├── differential_drive.py
+│   ├── experiment_cli.py
+│   ├── experiments.py
+│   ├── odometry_node.py
+│   └── scenarios.py
+├── tests/
+├── package.xml
+├── pyproject.toml
+├── setup.cfg
+└── setup.py
+```
 
 ## Roadmap
 
-### Milestone 2 — deterministic motion experiments
+### Next — sensor simulation and fault injection
 
-- command-sequence generator;
-- CSV trajectory export;
-- path and error plots;
-- repeatability and runtime metrics.
+- wheel-encoder and IMU models;
+- Gaussian noise, slowly varying bias, dropout, outliers, and wheel slip;
+- deterministic fault scenarios and detection-delay metrics.
 
-### Milestone 3 — sensor simulation and fault injection
-
-- wheel encoders and IMU;
-- Gaussian noise, bias, dropout, wheel slip, and outliers;
-- configurable deterministic scenarios.
-
-### Milestone 4 — state estimation
+### State estimation
 
 - Extended Kalman Filter;
 - covariance propagation;
 - innovation and Normalized Innovation Squared monitoring;
-- measurement rejection and fault-detection metrics.
+- measurement rejection and fault-detection evaluation.
 
-### Milestone 5 — robot simulation
+### Robot simulation
 
-- URDF/Xacro model;
-- differential-drive controller;
-- laser scanner and IMU integration;
-- RViz and physics-simulator launch configuration.
+- URDF/Xacro differential-drive model;
+- physics-simulator integration;
+- laser scanner and IMU topics;
+- RViz visualisation.
 
-### Milestone 6 — autonomous navigation
+### Autonomous navigation
 
-- SLAM Toolbox;
-- localisation;
+- SLAM Toolbox and localisation;
 - Nav2 planner and controller configuration;
 - navigation success rate, path length, completion time, and recovery metrics.
 
 ## Engineering limitations
 
-- Current odometry is derived from commanded rather than measured motion.
-- Wheel slip, encoder resolution, latency, dynamics, and actuator saturation are not yet modelled.
-- Published covariance entries are initial placeholders and are not identified from physical data.
-- No safety or real-time guarantees are provided.
-- The project is educational portfolio software, not a production robot controller.
+- Current ROS odometry is derived from commanded rather than measured wheel motion.
+- Sensor uncertainty, wheel slip, latency, dynamics, and actuator saturation are not yet modelled.
+- Published covariance entries are placeholders and are not identified from physical data.
+- Full ROS 2 simulator and physical-robot integration have not yet been validated.
+- The project is educational portfolio software, not a safety-certified controller.
 
 ## Author
 
-Sadik Enes Erisen — M.Sc. Autonomy Technologies, FAU Erlangen-Nürnberg; B.Sc. Electrical and
-Electronics Engineering.
+Sadik Enes Erisen — M.Sc. Autonomy Technologies, FAU Erlangen-Nürnberg; B.Sc. Electrical and Electronics Engineering.

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>faultnav_robot</name>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <description>Python-first ROS 2 foundation for mobile-robot odometry and navigation experiments.</description>
   <maintainer email="s.eneserisen@gmail.com">Sadik Enes Erisen</maintainer>
   <license>MIT</license>
