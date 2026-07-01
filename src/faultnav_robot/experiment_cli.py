@@ -5,19 +5,21 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from faultnav_robot.estimator_reports import run_estimator_comparison
 from faultnav_robot.experiments import run_experiment
 from faultnav_robot.scenarios import available_scenarios, get_scenario
 from faultnav_robot.sensor_reports import run_sensor_experiment
 from faultnav_robot.sensors import sensor_profile
 
 SENSOR_PROFILES = ("none", "nominal", "wheel-slip", "gyro-bias", "combined-faults")
+ESTIMATOR_MODES = ("none", "compare")
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the experiment CLI argument parser."""
 
     parser = argparse.ArgumentParser(
-        description="Run a deterministic FaultNav trajectory or sensor-fault experiment."
+        description="Run deterministic FaultNav motion, sensor, or estimator experiments."
     )
     parser.add_argument(
         "--scenario",
@@ -44,6 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional deterministic encoder and IMU profile.",
     )
     parser.add_argument(
+        "--estimator",
+        choices=ESTIMATOR_MODES,
+        default="none",
+        help="Run raw odometry, standard EKF, and fault-aware EKF comparison.",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=7,
@@ -58,7 +66,41 @@ def main(args: list[str] | None = None) -> int:
     parsed = build_parser().parse_args(args)
     scenario = get_scenario(parsed.scenario)
 
-    if parsed.sensor_profile == "none":
+    if parsed.estimator == "compare":
+        if parsed.sensor_profile == "none":
+            raise SystemExit("--estimator compare requires a non-'none' --sensor-profile")
+        metrics, artifacts = run_estimator_comparison(
+            scenario,
+            output_dir=parsed.output_dir,
+            profile_name=parsed.sensor_profile,
+            sensor_config=sensor_profile(parsed.sensor_profile, seed=parsed.seed),
+            integration_step_s=parsed.step,
+        )
+        print(f"Scenario: {scenario.name}")
+        print(f"Sensor profile: {parsed.sensor_profile}")
+        print(f"Seed: {parsed.seed}")
+        print(
+            "Raw wheel position RMSE: "
+            f"{metrics.raw_wheel_odometry.wheel_position_rmse_m:.6f} m"
+        )
+        print(f"Standard EKF position RMSE: {metrics.standard_ekf.position_rmse_m:.6f} m")
+        print(
+            "Fault-aware EKF position RMSE: "
+            f"{metrics.fault_aware_ekf.position_rmse_m:.6f} m"
+        )
+        print(
+            "Fault-aware EKF heading RMSE: "
+            f"{metrics.fault_aware_ekf.heading_rmse_rad:.6f} rad"
+        )
+        print(
+            "Transient-fault rejection rate: "
+            f"{100.0 * metrics.fault_aware_ekf.transient_fault_rejection_rate:.1f}%"
+        )
+        print(
+            "Healthy-period false rejections: "
+            f"{metrics.fault_aware_ekf.nominal_false_rejections}"
+        )
+    elif parsed.sensor_profile == "none":
         metrics, artifacts = run_experiment(
             scenario,
             output_dir=parsed.output_dir,
