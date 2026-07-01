@@ -6,7 +6,7 @@ PACKAGE_NAME = "faultnav_robot"
 
 setup(
     name=PACKAGE_NAME,
-    version="0.3.0",
+    version="0.4.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     data_files=[
