@@ -1,0 +1,13 @@
+{
+  "duration_s": 25.13274122871849,
+  "final_wheel_heading_error_rad": -0.0064968598075134665,
+  "final_wheel_position_error_m": 0.002392843241318275,
+  "gyro_outlier_duration_s": 0,
+  "imu_dropout_duration_s": 0,
+  "max_abs_gyro_error_rad_s": 0.00975431524648962,
+  "max_wheel_position_error_m": 0.014189700259423657,
+  "sample_count": 253,
+  "wheel_heading_rmse_rad": 0.0043119900786686574,
+  "wheel_position_rmse_m": 0.007229756629222719,
+  "wheel_slip_duration_s": 0
+}
