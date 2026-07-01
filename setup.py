@@ -6,7 +6,7 @@ PACKAGE_NAME = "faultnav_robot"
 
 setup(
     name=PACKAGE_NAME,
-    version="0.2.0",
+    version="0.3.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     data_files=[
@@ -15,7 +15,7 @@ setup(
         (f"share/{PACKAGE_NAME}/launch", glob("launch/*.launch.py")),
         (f"share/{PACKAGE_NAME}/config", glob("config/*.yaml")),
     ],
-    install_requires=["setuptools"],
+    install_requires=["numpy>=1.26", "setuptools"],
     zip_safe=True,
     maintainer="Sadik Enes Erisen",
     maintainer_email="s.eneserisen@gmail.com",
