@@ -60,3 +60,16 @@ jobs:
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor.csv
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_metrics.json
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_report.svg
+
+      - name: Validate installed EKF comparison CLI
+        run: |
+          faultnav-experiment \
+            --scenario figure-eight \
+            --step 0.1 \
+            --sensor-profile combined-faults \
+            --estimator compare \
+            --seed 7 \
+            --output-dir artifacts/estimator-ci
+          test -s artifacts/estimator-ci/figure_eight_combined_faults_estimator.csv
+          test -s artifacts/estimator-ci/figure_eight_combined_faults_estimator_metrics.json
+          test -s artifacts/estimator-ci/figure_eight_combined_faults_estimator_report.svg
