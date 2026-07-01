@@ -24,7 +24,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: dev-requirements.txt
+          cache-dependency-path: |
+            dev-requirements.txt
+            setup.py
 
       - name: Install package and development dependencies
         run: |
@@ -37,12 +39,24 @@ jobs:
       - name: Run unit tests
         run: pytest
 
-      - name: Validate installed experiment CLI
+      - name: Validate installed motion CLI
         run: |
           faultnav-experiment \
             --scenario figure-eight \
             --step 0.2 \
-            --output-dir artifacts/ci
-          test -s artifacts/ci/figure_eight_trajectory.csv
-          test -s artifacts/ci/figure_eight_metrics.json
-          test -s artifacts/ci/figure_eight_trajectory.svg
+            --output-dir artifacts/motion-ci
+          test -s artifacts/motion-ci/figure_eight_trajectory.csv
+          test -s artifacts/motion-ci/figure_eight_metrics.json
+          test -s artifacts/motion-ci/figure_eight_trajectory.svg
+
+      - name: Validate installed sensor-fault CLI
+        run: |
+          faultnav-experiment \
+            --scenario figure-eight \
+            --step 0.2 \
+            --sensor-profile combined-faults \
+            --seed 7 \
+            --output-dir artifacts/sensor-ci
+          test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor.csv
+          test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_metrics.json
+          test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_report.svg
