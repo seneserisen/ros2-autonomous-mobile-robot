@@ -4,6 +4,12 @@
 
 A Python-first ROS 2 engineering project for mobile-robot kinematics, encoder and IMU simulation, fault injection, odometry, reproducible experiments, and the staged development of fault-aware autonomous navigation.
 
+## Project status
+
+The current `v0.3.0` software foundation is implemented and tested: deterministic motion scenarios, simulated encoder/IMU measurements, configurable faults, encoder-derived odometry, reports and a ROS 2 command-odometry node.
+
+State estimation, physics simulation, SLAM, Nav2 and hardware-in-the-loop are future milestones. They are not part of the current executable evidence.
+
 ## Engineering evidence
 
 FaultNav is organised as a growing autonomy system rather than a collection of tutorial scripts. The current `v0.3.0` milestone demonstrates:
@@ -247,6 +253,15 @@ Automated tests cover:
 - CSV, JSON, SVG, and installed-CLI artifact generation.
 
 GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion and sensor-fault CLI workflows.
+
+## Technology used
+
+| Area | Tools |
+| --- | --- |
+| Robotics core | Python, NumPy and analytical differential-drive kinematics |
+| ROS 2 interface | `rclpy`, `geometry_msgs`, `nav_msgs`, TF2, parameters and launch files |
+| Experiments | Seeded sensor simulation, CSV/JSON data and dependency-free SVG reports |
+| Verification | pytest, Ruff and GitHub Actions on Python 3.10–3.12 |
 
 ## Repository structure
 
