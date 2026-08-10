@@ -1,6 +1,6 @@
 # ADR-001: ROS-independent EKF architecture
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-04
 - Decision owner: Sadik Enes Erisen
 - Related issue or milestone: FaultNav state-estimation and fault-monitoring milestone

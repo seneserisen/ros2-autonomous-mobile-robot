@@ -34,12 +34,37 @@ python -m pip install --upgrade pip
 python -m pip install -e . -r dev-requirements.txt
 ```
 
+## Simple local workflow
+
+For Windows users:
+
+```text
+SETUP.bat
+RUN.bat
+DOCTOR.bat
+TEST.bat
+```
+
+For Linux/macOS users:
+
+```bash
+sh setup.sh
+sh run.sh
+sh doctor.sh
+sh test.sh
+```
+
+`RUN` creates the deterministic combined-fault demonstration under `artifacts/demo`. It invokes
+setup automatically when the managed environment is absent or its setup fingerprint is stale.
+`DOCTOR` treats Python, the environment, imports, installed CLI, and output permissions as required;
+Git/GitHub diagnostics are non-blocking for an already-installed offline demo.
+
 ## Fast validation
 
 Run after a focused local change:
 
 ```bash
-ruff check src tests setup.py launch
+ruff check src tests scripts setup.py launch
 pytest
 ```
 
@@ -142,12 +167,13 @@ ROS 2 runtime checks must not be marked complete when only the Python core was t
 
 ## Test strategy
 
-- Unit tests: kinematics, scenarios, sensors, metrics, validation, and failure behavior.
+- Unit tests: kinematics, scenarios, sensors, EKF prediction, local workflow helpers, metrics, validation, and failure behavior.
 - Integration tests: installed CLI and generated artifacts.
 - Regression tests: every corrected defect where practical.
 - Numerical reference tests: analytical constant-twist cases and independently calculated wheel geometry.
 - ROS tests: topics, frames, parameters, timeout behavior, and launch configuration when a ROS environment is available.
-- Future estimator tests: covariance properties, innovation statistics, measurement rejection, and deterministic comparisons.
+- Estimator tests: analytical prediction, finite-difference Jacobians, and covariance properties.
+- Future estimator tests: innovation statistics, measurement rejection, and deterministic comparisons.
 
 ## CI
 

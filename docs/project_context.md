@@ -37,6 +37,8 @@ The project is intended to demonstrate robotics modelling, numerical reasoning, 
 - scale error, asymmetric wheel slip, gyro bias, IMU dropout, and gyro outlier injection;
 - CSV datasets, JSON metrics, and dependency-free SVG reports;
 - ROS 2 `cmd_vel` subscription, `odom` publication, `odom -> base_link` TF, parameters, launch support, and stale-command protection;
+- ROS-independent five-state EKF prediction, state-transition Jacobian, and covariance propagation;
+- idempotent local setup, one-command deterministic demonstration, tests, and environment doctor;
 - automated Python tests, Ruff linting, and Python 3.10–3.12 CI.
 
 ## Current non-goals
@@ -56,9 +58,7 @@ Build the state-estimation and fault-monitoring layer while preserving the exist
 
 ### Planned acceptance direction
 
-- Extended Kalman Filter for planar pose and velocity;
-- explicit covariance propagation;
-- encoder and IMU measurement updates;
+- encoder and gyroscope EKF measurement updates;
 - innovation and Normalized Innovation Squared monitoring;
 - configurable measurement rejection;
 - comparison of raw wheel odometry, nominal EKF, and fault-aware EKF;
@@ -94,6 +94,8 @@ Breaking changes require explicit approval and documentation.
 - [ ] Analytical or independent reference checks are used for important mathematics.
 - [ ] `docs/testing.md` commands pass, or existing failures are documented accurately.
 - [ ] Documentation matches actual behavior.
+- [ ] `START_HERE.md`, setup, demo, test, and doctor workflows remain usable.
+- [ ] Basic failures produce actionable messages rather than hidden fallbacks.
 - [ ] Generated artifacts and public claims are reproducible.
 - [ ] No secrets, private data, placeholder results, or unsupported claims remain.
 - [ ] Enes can explain the architecture, equations, assumptions, tests, and limitations.
