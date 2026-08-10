@@ -1,26 +1,32 @@
 from __future__ import annotations
 
+import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
 
-from scripts import faultnav_workflow
-from scripts.faultnav_workflow import (
-    DEMO_ARTIFACT_NAMES,
-    DoctorCheck,
-    WorkflowError,
-    demo_command,
-    environment_is_ready,
-    expected_demo_artifacts,
-    format_doctor_check,
-    sanitized_remote_url,
-    setup_fingerprint,
-    venv_cli_path,
-    venv_python_path,
-    verify_demo_artifacts,
-)
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW_PATH = PROJECT_ROOT / "scripts" / "faultnav_workflow.py"
+WORKFLOW_MODULE_NAME = "faultnav_workflow_under_test"
+WORKFLOW_SPEC = importlib.util.spec_from_file_location(WORKFLOW_MODULE_NAME, WORKFLOW_PATH)
+assert WORKFLOW_SPEC is not None and WORKFLOW_SPEC.loader is not None
+faultnav_workflow = importlib.util.module_from_spec(WORKFLOW_SPEC)
+sys.modules[WORKFLOW_MODULE_NAME] = faultnav_workflow
+WORKFLOW_SPEC.loader.exec_module(faultnav_workflow)
+
+DEMO_ARTIFACT_NAMES = faultnav_workflow.DEMO_ARTIFACT_NAMES
+DoctorCheck = faultnav_workflow.DoctorCheck
+WorkflowError = faultnav_workflow.WorkflowError
+demo_command = faultnav_workflow.demo_command
+environment_is_ready = faultnav_workflow.environment_is_ready
+expected_demo_artifacts = faultnav_workflow.expected_demo_artifacts
+format_doctor_check = faultnav_workflow.format_doctor_check
+sanitized_remote_url = faultnav_workflow.sanitized_remote_url
+setup_fingerprint = faultnav_workflow.setup_fingerprint
+venv_cli_path = faultnav_workflow.venv_cli_path
+venv_python_path = faultnav_workflow.venv_python_path
+verify_demo_artifacts = faultnav_workflow.verify_demo_artifacts
 
 
 def _write_setup_inputs(project_root: Path, *, suffix: str = "") -> None:
