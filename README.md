@@ -6,9 +6,13 @@ A Python-first ROS 2 engineering project for mobile-robot kinematics, encoder an
 
 ## Project status
 
-The current `v0.3.0` software foundation is implemented and tested: deterministic motion scenarios, simulated encoder/IMU measurements, configurable faults, encoder-derived odometry, reports and a ROS 2 command-odometry node.
+The documented `v0.3.0` foundation is implemented and tested: deterministic motion scenarios,
+simulated encoder/IMU measurements, configurable faults, encoder-derived odometry, reports, and a
+ROS 2 command-odometry node. Current `main` additionally includes the first ROS-independent
+five-state EKF prediction layer and local setup, demo, test, and doctor workflows.
 
-State estimation, physics simulation, SLAM, Nav2 and hardware-in-the-loop are future milestones. They are not part of the current executable evidence.
+EKF measurement updates, innovation monitoring, gating, physics simulation, SLAM, Nav2, and
+hardware-in-the-loop remain future milestones. They are not part of the current executable evidence.
 
 ## Engineering evidence
 
