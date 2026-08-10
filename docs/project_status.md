@@ -48,8 +48,9 @@
 | Ideal-motion CLI artifacts | Automated in CI | CSV, JSON, and SVG existence checks |
 | Combined-fault CLI artifacts | Automated in CI | CSV, JSON, and SVG existence checks |
 | Local workflow helper | Automated in tests | Idempotence fingerprint, commands, artifacts, wrappers |
-| Windows launchers | Locally verified | Setup, demo, tests, and doctor |
-| Linux/macOS launchers | Syntax and unit tested | Native execution still requires those platforms |
+| Windows launchers | Automated and locally verified | Clean-runner setup, demo, tests, and doctor |
+| Linux launchers | Automated in CI | Clean-runner setup, demo, tests, and doctor |
+| macOS launchers | Syntax and unit tested | Native execution still requires macOS |
 | ROS 2 runtime | Not currently automated | Requires compatible ROS 2 environment |
 | Physics simulation | Not implemented | Future milestone |
 | Hardware validation | Not performed | Explicit approval and separate safety plan required |

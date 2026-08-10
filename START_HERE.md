@@ -58,10 +58,10 @@ changes.
 From a terminal in the repository root:
 
 ```bash
-sh setup.sh
-sh run.sh
-sh doctor.sh
-sh test.sh
+./setup.sh
+./run.sh
+./doctor.sh
+./test.sh
 ```
 
 Python 3.10–3.12 is recommended. The first setup requires internet access to download declared
@@ -70,7 +70,7 @@ Python packages. ROS 2 remains a separate advanced workflow.
 ## Run the tests
 
 - Windows: double-click `TEST.bat`.
-- Linux/macOS: run `sh test.sh`.
+- Linux/macOS: run `./test.sh`.
 
 The test launcher runs Ruff and pytest. It does not run ROS 2, simulator, or hardware checks.
 

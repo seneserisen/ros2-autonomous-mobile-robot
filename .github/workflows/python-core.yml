@@ -60,3 +60,51 @@ jobs:
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor.csv
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_metrics.json
           test -s artifacts/sensor-ci/figure_eight_combined_faults_sensor_report.svg
+
+  launcher-smoke:
+    name: Local launchers (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            dev-requirements.txt
+            setup.py
+
+      - name: Validate POSIX launchers
+        if: runner.os == 'Linux'
+        env:
+          FAULTNAV_VENV_DIR: ${{ runner.temp }}/faultnav-launcher-venv
+        run: |
+          ./setup.sh
+          ./run.sh
+          ./test.sh
+          ./doctor.sh
+
+      - name: Validate Windows launchers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          FAULTNAV_NO_OPEN: "1"
+          FAULTNAV_NO_PAUSE: "1"
+          FAULTNAV_VENV_DIR: ${{ runner.temp }}/faultnav-launcher-venv
+        run: |
+          cmd /c SETUP.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c RUN.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c TEST.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c DOCTOR.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

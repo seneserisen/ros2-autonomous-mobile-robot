@@ -107,7 +107,7 @@ RUN.bat
 The deterministic combined-fault simulation writes its CSV, JSON, and SVG report to
 `artifacts/demo/`. `RUN.bat` automatically performs setup when needed; `DOCTOR.bat` provides
 actionable environment and Git diagnostics. On Windows the report opens automatically after a
-successful demo. Linux and macOS users can run `sh setup.sh` followed by `sh run.sh`.
+successful demo. Linux and macOS users can run `./setup.sh` followed by `./run.sh`.
 
 ## Quick start without ROS 2
 

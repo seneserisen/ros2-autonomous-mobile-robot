@@ -48,10 +48,10 @@ TEST.bat
 For Linux/macOS users:
 
 ```bash
-sh setup.sh
-sh run.sh
-sh doctor.sh
-sh test.sh
+./setup.sh
+./run.sh
+./doctor.sh
+./test.sh
 ```
 
 `RUN` creates the deterministic combined-fault demonstration under `artifacts/demo`. It invokes
@@ -186,6 +186,7 @@ CI currently performs:
 - pytest;
 - ideal-motion CLI artifact checks;
 - combined-fault CLI artifact checks.
+- clean-runner setup, demo, test, and doctor launcher checks on Ubuntu and Windows.
 
 CI does not currently prove:
 
