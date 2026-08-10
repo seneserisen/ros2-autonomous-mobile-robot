@@ -80,6 +80,17 @@ That baseline validates numerical consistency before encoder resolution, measure
 - nominal, wheel-slip, gyro-bias, and combined-fault profiles;
 - position RMSE, heading RMSE, final error, maximum error, and fault-duration metrics.
 
+### EKF prediction layer
+
+- ROS-independent five-state ordering `[p_x, p_y, yaw, v, yaw_rate]`;
+- exact constant-twist mean propagation with yaw wrapping;
+- analytical straight and turning state-transition Jacobians;
+- configurable continuous acceleration-noise densities and covariance propagation;
+- covariance shape, finite-value, symmetry, and positive-semi-definite checks.
+
+Measurement updates, innovations, NIS gating, estimator reports, and ROS integration remain later
+milestones.
+
 ### ROS 2 layer
 
 - `geometry_msgs/Twist` subscription on `cmd_vel`;
@@ -88,6 +99,21 @@ That baseline validates numerical consistency before encoder resolution, measure
 - configurable update rate, frame names, TF output, and command timeout;
 - zero-velocity fallback when the latest command becomes stale;
 - `ament_python` packaging, YAML parameters, and launch support.
+
+## 60-second local demo
+
+For a non-technical Windows walkthrough, start with [`START_HERE.md`](START_HERE.md), then
+double-click:
+
+```text
+SETUP.bat
+RUN.bat
+```
+
+The deterministic combined-fault simulation writes its CSV, JSON, and SVG report to
+`artifacts/demo/`. `RUN.bat` automatically performs setup when needed; `DOCTOR.bat` provides
+actionable environment and Git diagnostics. On Windows the report opens automatically after a
+successful demo. Linux and macOS users can run `./setup.sh` followed by `./run.sh`.
 
 ## Quick start without ROS 2
 
@@ -236,7 +262,7 @@ The resulting body increment is integrated with the same analytical constant-twi
 
 ```bash
 python -m pip install -e . -r dev-requirements.txt
-ruff check src tests setup.py launch
+ruff check src tests scripts setup.py launch
 pytest
 ```
 
@@ -250,6 +276,7 @@ Automated tests cover:
 - repeated output with the same random seed;
 - wheel-slip odometry degradation;
 - gyro bias, dropout, and outlier reporting;
+- analytical EKF prediction, finite-difference Jacobians, and covariance propagation;
 - CSV, JSON, SVG, and installed-CLI artifact generation.
 
 GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion and sensor-fault CLI workflows.
@@ -268,6 +295,9 @@ GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion 
 ```text
 .
 ├── .github/workflows/python-core.yml
+├── START_HERE.md
+├── SETUP.bat / RUN.bat / TEST.bat / DOCTOR.bat
+├── setup.sh / run.sh / test.sh / doctor.sh
 ├── config/faultnav.yaml
 ├── docs/architecture.md
 ├── examples/
@@ -276,8 +306,10 @@ GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion 
 │   ├── figure_eight_combined_faults_sensor_metrics.json
 │   └── figure_eight_combined_faults_sensor_report.svg
 ├── launch/faultnav.launch.py
+├── scripts/faultnav_workflow.py
 ├── src/faultnav_robot/
 │   ├── differential_drive.py
+│   ├── ekf.py
 │   ├── experiment_cli.py
 │   ├── experiments.py
 │   ├── odometry_node.py
@@ -294,9 +326,7 @@ GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion 
 
 ### Next — state estimation and fault monitoring
 
-- Extended Kalman Filter for planar pose and velocity;
-- covariance propagation;
-- encoder and IMU measurement updates;
+- encoder and gyroscope measurement updates;
 - innovation and Normalized Innovation Squared monitoring;
 - measurement rejection and fault-detection metrics;
 - raw odometry versus EKF versus fault-aware EKF comparison.

@@ -27,6 +27,12 @@ Outputs: CSV dataset + JSON metrics + SVG comparison report
 
 ROS 2 path:
 geometry_msgs/Twist -> CommandOdometryNode -> nav_msgs/Odometry + odom-to-base_link TF
+
+EKF prediction path:
+five-state posterior estimate + covariance -> exact constant-twist prediction -> predicted estimate + covariance
+
+Local demonstration path:
+SETUP/RUN/TEST/DOCTOR wrapper -> standard-library workflow helper -> installed faultnav-experiment CLI
 ```
 
 ## Module responsibilities
@@ -37,9 +43,11 @@ geometry_msgs/Twist -> CommandOdometryNode -> nav_msgs/Odometry + odom-to-base_l
 | `scenarios.py` | Typed command segments and reusable motion scenarios |
 | `experiments.py` | Deterministic ground-truth simulation and baseline reports |
 | `sensors.py` | Geometry, noise, faults, encoder counts, IMU measurements, wheel odometry, and error metrics |
+| `ekf.py` | ROS-independent five-state EKF mean, Jacobian, process-noise, and covariance prediction |
 | `sensor_reports.py` | Sensor CSV, metrics JSON, comparison SVG, and end-to-end experiment workflow |
 | `experiment_cli.py` | Installed CLI for baseline and sensor-fault experiments |
 | `odometry_node.py` | ROS 2 command subscription, timeout handling, odometry, and TF output |
+| `scripts/faultnav_workflow.py` | Idempotent local setup, deterministic demo, tests, and environment diagnostics |
 
 ## Design decisions
 
@@ -52,6 +60,18 @@ This separation is necessary for meaningful error analysis. If a corrupted measu
 ### Separate mathematics from middleware
 
 Kinematics, scenarios, sensor simulation, metrics, and reports contain no ROS imports. They can be validated with standard Python tools and reused later by ROS 2 nodes, state estimators, physics simulation, or hardware interfaces.
+
+The EKF prediction core follows the same boundary. It operates only on a five-element estimate and
+five-by-five covariance in the ordering `[p_x_m, p_y_m, yaw_rad, linear_velocity_m_s,
+yaw_rate_rad_s]`; it does not consume ground truth, sensor samples, or ROS messages.
+
+### Continuous process-noise discretisation
+
+EKF prediction uses configurable longitudinal-acceleration and yaw-acceleration white-noise
+densities. The standard continuous white-noise acceleration covariance is discretised over each
+interval. Longitudinal position noise is projected into odometry x/y using the nominal midpoint
+body heading; yaw acceleration is discretised over the yaw/yaw-rate double integrator. This is a
+local linearisation assumption, not an identified physical disturbance model.
 
 ### Exact constant-twist integration
 
@@ -76,6 +96,14 @@ Wheel slip, IMU dropout, and gyro outliers use half-open time windows. Fault act
 ### Dependency-free reports
 
 Trajectory and sensor-comparison reports are generated as SVG with the Python standard library. GitHub can render the results directly without committing binary plotting outputs.
+
+### Thin local workflow wrappers
+
+Root `.bat` and `.sh` files contain no robotics or reporting logic. They locate Python and delegate
+to one standard-library workflow helper, which in turn creates the documented environment and calls
+the installed `faultnav-experiment` CLI. A setup fingerprint covers Python's major/minor version and
+the package/development dependency metadata, allowing unchanged environments to be reused. Git and
+GitHub checks are diagnostic only; no launcher modifies repository history or publishes changes.
 
 ### Command timeout
 
@@ -108,6 +136,7 @@ Automated validation covers:
 - seeded sensor repeatability;
 - ideal zero-noise measurements;
 - encoder reconstruction;
+- analytical EKF prediction, finite-difference Jacobians, and covariance propagation;
 - wheel-slip degradation;
 - gyro bias, dropout, and outliers;
 - CSV, JSON, SVG, and installed CLI workflows.
@@ -120,12 +149,13 @@ Full ROS 2 runtime, physics-simulator, and physical-hardware validation remain s
 - Sensor parameters are controlled simulation values rather than identified hardware statistics.
 - Actuator dynamics, latency, saturation, and contact physics are not modelled.
 - ROS covariance values remain placeholders.
-- There is no localisation filter, robot description, SLAM, or Nav2 integration yet.
+- EKF measurement updates, innovation monitoring, gating, and ROS integration are not implemented.
+- There is no global localisation, robot description, SLAM, or Nav2 integration yet.
 
 ## Planned milestones
 
-1. Implement an Extended Kalman Filter with covariance propagation and innovation monitoring.
-2. Add Normalized Innovation Squared thresholds and faulty-measurement rejection.
+1. Add encoder and gyroscope EKF measurement updates.
+2. Add innovation monitoring, Normalized Innovation Squared thresholds, and faulty-measurement rejection.
 3. Introduce a URDF/Xacro differential-drive model and physics simulation.
 4. Add mapping, localisation, Nav2 configuration, and navigation metrics.
 5. Connect the model to a microcontroller-based hardware-in-the-loop rover.
