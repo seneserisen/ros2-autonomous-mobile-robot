@@ -1,8 +1,8 @@
 # FaultNav Project Status
 
-- Last updated: 10 August 2026
+- Last updated: 18 August 2026
 - Current maturity: Portfolio MVP in active development
-- Current documented release: `v0.3.0`
+- Current documented milestone: `v0.3.0` (not published as a GitHub release or tag)
 - Default branch: `main`
 - Latest validated implementation commit before governance setup: `c6ce39571ff4315dc20bcd1c13a43f07c079ffa1`
 

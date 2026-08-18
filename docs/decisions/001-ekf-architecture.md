@@ -8,9 +8,9 @@
 ## Context
 
 FaultNav currently has deterministic planar kinematics, differential-drive motion scenarios,
-encoder and IMU simulation, controlled fault injection, sensor-fault reports, and a ROS 2
-command-odometry interface. No Extended Kalman Filter (EKF), innovation monitoring, or
-measurement gating is implemented yet.
+encoder and IMU simulation, controlled fault injection, sensor-fault reports, a ROS 2
+command-odometry interface, and a ROS-independent EKF prediction core. EKF measurement updates,
+innovation monitoring, and measurement gating are not implemented yet.
 
 The next estimator milestone needs an EKF architecture that keeps the mathematical core
 independent of ROS 2, preserves the separation between ground truth, measurements, and estimates,
@@ -98,8 +98,9 @@ For a prediction interval:
 T = t[k+1] - t[k]
 ```
 
-`T` must be finite and positive. The estimator state at `t[k]` is propagated to `t[k+1]` using a
-constant forward body velocity and constant yaw rate over the interval.
+`T` must be finite and non-negative. A zero interval is an explicit no-op; for a positive interval,
+the estimator state at `t[k]` is propagated to `t[k+1]` using a constant forward body velocity and
+constant yaw rate over the interval.
 
 Let:
 

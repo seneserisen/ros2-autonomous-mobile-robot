@@ -19,6 +19,12 @@
 7. Review the complete diff.
 8. Update documentation when behavior, interfaces, assumptions, metrics, or limitations change.
 
+AI-assisted tools may be used for implementation support, review, documentation, and test
+scaffolding. Treat their output as unverified until it has been checked against the repository's
+requirements, engineering assumptions, tests, and reproducible artifacts. Pull requests should
+describe the evidence used to accept the change rather than claiming authorship based only on who
+operated a tool.
+
 ## Robotics and numerical changes
 
 Document and verify relevant:

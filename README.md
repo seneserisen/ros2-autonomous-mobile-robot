@@ -6,17 +6,18 @@ A Python-first ROS 2 engineering project for mobile-robot kinematics, encoder an
 
 ## Project status
 
-The documented `v0.3.0` foundation is implemented and tested: deterministic motion scenarios,
-simulated encoder/IMU measurements, configurable faults, encoder-derived odometry, reports, and a
-ROS 2 command-odometry node. Current `main` additionally includes the first ROS-independent
-five-state EKF prediction layer and local setup, demo, test, and doctor workflows.
+The current foundation is implemented and tested: deterministic motion scenarios, simulated
+encoder/IMU measurements, configurable faults, encoder-derived odometry, reports, and a ROS 2
+command-odometry node. Current `main` also includes the first ROS-independent five-state EKF
+prediction layer and local setup, demo, test, and doctor workflows. `v0.3.0` is an internal
+milestone name, not a published GitHub release or tag.
 
 EKF measurement updates, innovation monitoring, gating, physics simulation, SLAM, Nav2, and
 hardware-in-the-loop remain future milestones. They are not part of the current executable evidence.
 
 ## Engineering evidence
 
-FaultNav is organised as a growing autonomy system rather than a collection of tutorial scripts. The current `v0.3.0` milestone demonstrates:
+FaultNav is organised as a growing autonomy system rather than a collection of tutorial scripts. The current foundation demonstrates:
 
 - exact differential-drive/unicycle integration;
 - typed and reproducible straight, circular, square, and figure-eight scenarios;
@@ -214,6 +215,10 @@ ros2 topic echo /odom
 
 The default command timeout is `0.5 s`. When the command becomes stale, the published velocity returns to zero and pose integration stops.
 
+These commands document the intended ROS 2 workflow. The current GitHub Actions workflow validates
+the ROS-independent Python core, packaging, and generated artifacts; it does not run this repository
+inside a complete ROS 2 workspace.
+
 ## Architecture
 
 ```text
@@ -284,6 +289,12 @@ Automated tests cover:
 - CSV, JSON, SVG, and installed-CLI artifact generation.
 
 GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion and sensor-fault CLI workflows.
+
+## Development process
+
+AI-assisted development tools may support implementation, review, documentation, and test
+scaffolding. Their output is treated as unverified until the engineering assumptions, interfaces,
+tests, and published artifacts have been reviewed against the repository requirements.
 
 ## Technology used
 

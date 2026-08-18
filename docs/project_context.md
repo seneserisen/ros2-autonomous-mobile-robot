@@ -8,7 +8,7 @@ This file is the repository source of truth for project scope, maturity, and suc
 - Repository: `seneserisen/ros2-autonomous-mobile-robot`
 - Owner: Sadik Enes Erisen
 - Maturity target: Portfolio MVP
-- Current documented milestone: `v0.3.0`
+- Current documented milestone: `v0.3.0` (not published as a GitHub release or tag)
 - Primary stack: Python 3.10–3.12, ROS 2 `ament_python`, NumPy, pytest, Ruff
 - Repository visibility: Public
 - License: MIT
