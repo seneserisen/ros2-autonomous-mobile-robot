@@ -37,7 +37,9 @@ The project is intended to demonstrate robotics modelling, numerical reasoning, 
 - scale error, asymmetric wheel slip, gyro bias, IMU dropout, and gyro outlier injection;
 - CSV datasets, JSON metrics, and dependency-free SVG reports;
 - ROS 2 `cmd_vel` subscription, `odom` publication, `odom -> base_link` TF, parameters, launch support, and stale-command protection;
-- ROS-independent five-state EKF prediction, state-transition Jacobian, and covariance propagation;
+- ROS-independent five-state EKF prediction, state-transition Jacobian, covariance propagation,
+  encoder-derived forward-velocity updates, and gyroscope yaw-rate updates;
+- diagnostic measurement innovations and Joseph-form posterior covariance without NIS or gating;
 - idempotent local setup, one-command deterministic demonstration, tests, and environment doctor;
 - automated Python tests, Ruff linting, and Python 3.10–3.12 CI.
 
@@ -56,16 +58,17 @@ The project is intended to demonstrate robotics modelling, numerical reasoning, 
 
 Build the state-estimation and fault-monitoring layer while preserving the existing deterministic experiment and sensor-fault baselines.
 
-### Planned acceptance direction
+### Current acceptance direction
 
-- encoder and gyroscope EKF measurement updates;
+- preserve the implemented encoder and gyroscope EKF measurement updates;
 - innovation and Normalized Innovation Squared monitoring;
 - configurable measurement rejection;
 - comparison of raw wheel odometry, nominal EKF, and fault-aware EKF;
 - reproducible metrics and visual reports;
 - tests against analytical or independently calculated reference cases.
 
-These are roadmap items, not claims of implemented functionality.
+Only measurement updates and their raw innovation diagnostics are implemented. NIS monitoring,
+rejection, estimator comparisons, reports, and ROS integration remain roadmap items.
 
 ## Core engineering invariants
 

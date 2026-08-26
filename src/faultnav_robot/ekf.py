@@ -1,8 +1,9 @@
-"""ROS-independent Extended Kalman Filter prediction for planar odometry.
+"""ROS-independent Extended Kalman Filter mathematics for planar odometry.
 
 The five-state ordering is fixed as ``[p_x_m, p_y_m, yaw_rad,
-linear_velocity_m_s, yaw_rate_rad_s]``.  This module intentionally contains no
-measurement updates, innovation monitoring, gating, or ROS 2 integration.
+linear_velocity_m_s, yaw_rate_rad_s]``. The module implements prediction and
+ungated scalar encoder-velocity and gyroscope updates. It intentionally contains
+no NIS calculation, measurement rejection, fault classification, or ROS 2 integration.
 """
 
 from __future__ import annotations
@@ -69,6 +70,25 @@ class EkfPredictionResult:
     process_covariance: np.ndarray
 
 
+@dataclass(frozen=True)
+class EkfMeasurementUpdateResult:
+    """Posterior and diagnostic terms from one ungated scalar update.
+
+    ``innovation`` and ``innovation_covariance`` are diagnostic outputs only.
+    Every valid finite measurement is processed; this result does not contain a
+    gate decision or fault classification.
+    """
+
+    state: np.ndarray
+    covariance: np.ndarray
+    innovation: float
+    innovation_covariance: float
+    kalman_gain: np.ndarray
+    measurement_jacobian: np.ndarray
+    predicted_measurement: float
+    actual_measurement: float
+
+
 def _validated_state(state: np.ndarray) -> np.ndarray:
     array = np.asarray(state, dtype=float)
     if array.shape != (STATE_SIZE,):
@@ -106,6 +126,15 @@ def _validated_covariance(
     return symmetric_matrix.copy()
 
 
+def _validate_covariance_tolerances(
+    symmetry_tolerance: float,
+    psd_tolerance: float,
+) -> None:
+    tolerances = (symmetry_tolerance, psd_tolerance)
+    if not all(isfinite(value) and value >= 0.0 for value in tolerances):
+        raise ValueError("covariance tolerances must be finite and non-negative")
+
+
 def validate_covariance(
     covariance: np.ndarray,
     *,
@@ -118,13 +147,164 @@ def validate_covariance(
     of one and the largest absolute covariance entry.
     """
 
-    tolerances = (symmetry_tolerance, psd_tolerance)
-    if not all(isfinite(value) and value >= 0.0 for value in tolerances):
-        raise ValueError("covariance tolerances must be finite and non-negative")
+    _validate_covariance_tolerances(symmetry_tolerance, psd_tolerance)
     _validated_covariance(
         covariance,
         symmetry_tolerance=symmetry_tolerance,
         psd_tolerance=psd_tolerance,
+    )
+
+
+def _validated_finite_scalar(value: float, *, name: str) -> float:
+    if value is None:
+        raise ValueError(f"{name} must be a finite numeric value")
+    try:
+        scalar = float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{name} must be a finite numeric value") from error
+    if not isfinite(scalar):
+        raise ValueError(f"{name} must be a finite numeric value")
+    return scalar
+
+
+def _validated_positive_variance(value: float, *, name: str) -> float:
+    variance = _validated_finite_scalar(value, name=name)
+    if variance <= 0.0:
+        raise ValueError(f"{name} must be strictly positive")
+    return variance
+
+
+def _linear_scalar_measurement_update(
+    state: np.ndarray,
+    covariance: np.ndarray,
+    *,
+    measurement: float,
+    measurement_variance: float,
+    observed_state_index: int,
+    measurement_name: str,
+    variance_name: str,
+    covariance_symmetry_tolerance: float,
+    covariance_psd_tolerance: float,
+) -> EkfMeasurementUpdateResult:
+    """Apply one linear scalar measurement with Joseph covariance form."""
+
+    validated_state = _validated_state(state)
+    _validate_covariance_tolerances(
+        covariance_symmetry_tolerance,
+        covariance_psd_tolerance,
+    )
+    validated_covariance = _validated_covariance(
+        covariance,
+        symmetry_tolerance=covariance_symmetry_tolerance,
+        psd_tolerance=covariance_psd_tolerance,
+    )
+    actual_measurement = _validated_finite_scalar(measurement, name=measurement_name)
+    resolved_variance = _validated_positive_variance(
+        measurement_variance,
+        name=variance_name,
+    )
+
+    measurement_jacobian = np.zeros((1, STATE_SIZE))
+    measurement_jacobian[0, observed_state_index] = 1.0
+    predicted_measurement = float(validated_state[observed_state_index])
+    innovation = actual_measurement - predicted_measurement
+    innovation_covariance = (
+        measurement_jacobian @ validated_covariance @ measurement_jacobian.T
+    ).item() + resolved_variance
+    if not isfinite(innovation_covariance) or innovation_covariance <= 0.0:
+        raise FloatingPointError(
+            "measurement update produced a non-positive or non-finite innovation covariance"
+        )
+
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        kalman_gain = validated_covariance @ measurement_jacobian.T / innovation_covariance
+        posterior_state = validated_state + kalman_gain[:, 0] * innovation
+        posterior_state[YAW] = wrap_angle(float(posterior_state[YAW]))
+        identity_minus_gain_jacobian = np.eye(STATE_SIZE) - kalman_gain @ measurement_jacobian
+        posterior_covariance = (
+            identity_minus_gain_jacobian @ validated_covariance @ identity_minus_gain_jacobian.T
+            + resolved_variance * (kalman_gain @ kalman_gain.T)
+        )
+
+    if not np.all(np.isfinite(kalman_gain)):
+        raise FloatingPointError("measurement update produced a non-finite Kalman gain")
+    if not np.all(np.isfinite(posterior_state)):
+        raise FloatingPointError("measurement update produced a non-finite posterior state")
+    if not np.all(np.isfinite(posterior_covariance)):
+        raise FloatingPointError("measurement update produced a non-finite posterior covariance")
+
+    validated_posterior_covariance = _validated_covariance(
+        posterior_covariance,
+        symmetry_tolerance=covariance_symmetry_tolerance,
+        psd_tolerance=covariance_psd_tolerance,
+    )
+    return EkfMeasurementUpdateResult(
+        state=posterior_state,
+        covariance=validated_posterior_covariance,
+        innovation=innovation,
+        innovation_covariance=innovation_covariance,
+        kalman_gain=kalman_gain,
+        measurement_jacobian=measurement_jacobian,
+        predicted_measurement=predicted_measurement,
+        actual_measurement=actual_measurement,
+    )
+
+
+def update_encoder_velocity(
+    state: np.ndarray,
+    covariance: np.ndarray,
+    measured_velocity_m_s: float,
+    measurement_variance_m2_s2: float,
+    *,
+    covariance_symmetry_tolerance: float = 1e-12,
+    covariance_psd_tolerance: float = 1e-12,
+) -> EkfMeasurementUpdateResult:
+    """Fuse encoder-derived forward body velocity in m/s without gating.
+
+    The measurement model is ``h(x) = linear_velocity_m_s`` with Jacobian
+    ``[0, 0, 0, 1, 0]``. The caller must construct the value from encoder
+    information; ground truth and wheel-odometry pose are not valid inputs.
+    """
+
+    return _linear_scalar_measurement_update(
+        state,
+        covariance,
+        measurement=measured_velocity_m_s,
+        measurement_variance=measurement_variance_m2_s2,
+        observed_state_index=LINEAR_VELOCITY,
+        measurement_name="measured_velocity_m_s",
+        variance_name="measurement_variance_m2_s2",
+        covariance_symmetry_tolerance=covariance_symmetry_tolerance,
+        covariance_psd_tolerance=covariance_psd_tolerance,
+    )
+
+
+def update_gyro_yaw_rate(
+    state: np.ndarray,
+    covariance: np.ndarray,
+    measured_yaw_rate_rad_s: float,
+    measurement_variance_rad2_s2: float,
+    *,
+    covariance_symmetry_tolerance: float = 1e-12,
+    covariance_psd_tolerance: float = 1e-12,
+) -> EkfMeasurementUpdateResult:
+    """Fuse a finite gyroscope yaw-rate measurement in rad/s without gating.
+
+    The measurement model is ``h(x) = yaw_rate_rad_s`` with Jacobian
+    ``[0, 0, 0, 0, 1]``. A missing IMU value is unavailable data: callers must
+    skip this function rather than converting ``None`` to zero.
+    """
+
+    return _linear_scalar_measurement_update(
+        state,
+        covariance,
+        measurement=measured_yaw_rate_rad_s,
+        measurement_variance=measurement_variance_rad2_s2,
+        observed_state_index=YAW_RATE,
+        measurement_name="measured_yaw_rate_rad_s",
+        variance_name="measurement_variance_rad2_s2",
+        covariance_symmetry_tolerance=covariance_symmetry_tolerance,
+        covariance_psd_tolerance=covariance_psd_tolerance,
     )
 
 
@@ -161,12 +341,8 @@ def _state_and_jacobian(
         jacobian[POSITION_Y, YAW] = linear_velocity_m_s * dt_s * cosine_yaw
         jacobian[POSITION_X, LINEAR_VELOCITY] = dt_s * cosine_yaw
         jacobian[POSITION_Y, LINEAR_VELOCITY] = dt_s * sine_yaw
-        jacobian[POSITION_X, YAW_RATE] = (
-            -0.5 * linear_velocity_m_s * dt_s * dt_s * sine_yaw
-        )
-        jacobian[POSITION_Y, YAW_RATE] = (
-            0.5 * linear_velocity_m_s * dt_s * dt_s * cosine_yaw
-        )
+        jacobian[POSITION_X, YAW_RATE] = -0.5 * linear_velocity_m_s * dt_s * dt_s * sine_yaw
+        jacobian[POSITION_Y, YAW_RATE] = 0.5 * linear_velocity_m_s * dt_s * dt_s * cosine_yaw
     else:
         half_delta_yaw = 0.5 * yaw_rate_rad_s * dt_s
         midpoint_yaw = yaw_rad + half_delta_yaw
@@ -331,9 +507,7 @@ def predict(
         q_yaw_accel=resolved_config.q_yaw_accel,
     )
     with np.errstate(over="ignore", invalid="ignore"):
-        predicted_covariance = (
-            jacobian @ validated_covariance @ jacobian.T + process_noise
-        )
+        predicted_covariance = jacobian @ validated_covariance @ jacobian.T + process_noise
     if not np.all(np.isfinite(predicted_covariance)):
         raise FloatingPointError("prediction produced non-finite covariance values")
 

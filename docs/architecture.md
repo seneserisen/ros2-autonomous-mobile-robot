@@ -31,6 +31,11 @@ geometry_msgs/Twist -> CommandOdometryNode -> nav_msgs/Odometry + odom-to-base_l
 EKF prediction path:
 five-state posterior estimate + covariance -> exact constant-twist prediction -> predicted estimate + covariance
 
+EKF measurement path:
+encoder count increments -> body forward velocity --+
+                                                 +--> ungated scalar updates -> posterior estimate + covariance
+finite IMU yaw rate -----------------------------+
+
 Local demonstration path:
 SETUP/RUN/TEST/DOCTOR wrapper -> standard-library workflow helper -> installed faultnav-experiment CLI
 ```
@@ -43,7 +48,7 @@ SETUP/RUN/TEST/DOCTOR wrapper -> standard-library workflow helper -> installed f
 | `scenarios.py` | Typed command segments and reusable motion scenarios |
 | `experiments.py` | Deterministic ground-truth simulation and baseline reports |
 | `sensors.py` | Geometry, noise, faults, encoder counts, IMU measurements, wheel odometry, and error metrics |
-| `ekf.py` | ROS-independent five-state EKF mean, Jacobian, process-noise, and covariance prediction |
+| `ekf.py` | ROS-independent five-state EKF prediction and ungated scalar encoder-velocity/gyro updates |
 | `sensor_reports.py` | Sensor CSV, metrics JSON, comparison SVG, and end-to-end experiment workflow |
 | `experiment_cli.py` | Installed CLI for baseline and sensor-fault experiments |
 | `odometry_node.py` | ROS 2 command subscription, timeout handling, odometry, and TF output |
@@ -61,9 +66,58 @@ This separation is necessary for meaningful error analysis. If a corrupted measu
 
 Kinematics, scenarios, sensor simulation, metrics, and reports contain no ROS imports. They can be validated with standard Python tools and reused later by ROS 2 nodes, state estimators, physics simulation, or hardware interfaces.
 
-The EKF prediction core follows the same boundary. It operates only on a five-element estimate and
+The EKF core follows the same boundary. It operates only on a five-element estimate and
 five-by-five covariance in the ordering `[p_x_m, p_y_m, yaw_rad, linear_velocity_m_s,
-yaw_rate_rad_s]`; it does not consume ground truth, sensor samples, or ROS messages.
+yaw_rate_rad_s]`; it does not consume ground truth, fault flags, sensor-simulation objects, or ROS
+messages. Measurement functions receive independent numeric values.
+
+### Encoder measurement definition
+
+The current encoder update observes forward body velocity along `base_link` +x in m/s:
+
+```text
+z_v = v_encoder
+h_v(x) = linear_velocity_m_s
+H_v = [0, 0, 0, 1, 0]
+```
+
+`v_encoder` is calculated from consecutive quantised left/right encoder counts, the elapsed time,
+encoder resolution, and wheel radius. The same count-to-body-twist helper feeds wheel odometry, so
+there is no parallel kinematic convention. Pre-quantisation simulated wheel rates, ground truth,
+truth pose, fault flags, and integrated wheel-odometry pose are not EKF measurements.
+
+### Gyroscope measurement definition
+
+The gyro update observes yaw rate about `base_link` +z in rad/s:
+
+```text
+z_gyro = imu_yaw_rate_rad_s
+h_gyro(x) = yaw_rate_rad_s
+H_gyro = [0, 0, 0, 0, 1]
+```
+
+Velocity and yaw-rate innovations are ordinary scalar differences and are not angle-wrapped. A
+missing IMU value is unavailable data: the caller skips the update, and the low-level function
+rejects `None` rather than treating it as zero. No gyro-bias state or privileged fault correction is
+present.
+
+### Measurement covariance and posterior update
+
+Each public measurement function requires one finite, strictly positive variance: `(m/s)^2` for
+encoder-derived velocity or `(rad/s)^2` for gyro yaw rate. These values are separate from simulated
+sensor-noise settings and are not identified or calibrated hardware parameters.
+
+The shared scalar update computes innovation, innovation covariance, and the full Kalman gain. State
+cross-covariances are preserved, so observing velocity or yaw rate may legitimately change correlated
+pose components. Posterior covariance uses Joseph form:
+
+```text
+P_plus = (I - K H) P_minus (I - K H).T + K R K.T
+```
+
+The posterior is then checked with the existing finite, symmetry, and positive-semi-definite
+validation. Innovations are diagnostic outputs only. NIS, thresholds, acceptance/rejection, adaptive
+covariance, sensor disabling, and fault classification are not implemented.
 
 ### Continuous process-noise discretisation
 
@@ -136,7 +190,8 @@ Automated validation covers:
 - seeded sensor repeatability;
 - ideal zero-noise measurements;
 - encoder reconstruction;
-- analytical EKF prediction, finite-difference Jacobians, and covariance propagation;
+- analytical EKF prediction, finite-difference Jacobians, scalar measurement references,
+  correlated-state updates, and Joseph-form covariance propagation;
 - wheel-slip degradation;
 - gyro bias, dropout, and outliers;
 - CSV, JSON, SVG, and installed CLI workflows.
@@ -149,13 +204,16 @@ Full ROS 2 runtime, physics-simulator, and physical-hardware validation remain s
 - Sensor parameters are controlled simulation values rather than identified hardware statistics.
 - Actuator dynamics, latency, saturation, and contact physics are not modelled.
 - ROS covariance values remain placeholders.
-- EKF measurement updates, innovation monitoring, gating, and ROS integration are not implemented.
+- Raw measurement innovations are available, but NIS monitoring, gating, rejection, estimator
+  orchestration/reports, and ROS integration are not implemented.
+- Measurement covariance values are explicit engineering inputs, not hardware-calibrated statistics.
 - There is no global localisation, robot description, SLAM, or Nav2 integration yet.
 
 ## Planned milestones
 
-1. Add encoder and gyroscope EKF measurement updates.
-2. Add innovation monitoring, Normalized Innovation Squared thresholds, and faulty-measurement rejection.
-3. Introduce a URDF/Xacro differential-drive model and physics simulation.
-4. Add mapping, localisation, Nav2 configuration, and navigation metrics.
-5. Connect the model to a microcontroller-based hardware-in-the-loop rover.
+1. Add monitor-only Normalized Innovation Squared diagnostics without rejection.
+2. Add configurable faulty-measurement rejection as a separate behavior change.
+3. Add deterministic raw-odometry versus ungated-EKF versus gated-EKF comparison artifacts.
+4. Introduce a URDF/Xacro differential-drive model and physics simulation.
+5. Add mapping, localisation, Nav2 configuration, and navigation metrics.
+6. Connect the model to a microcontroller-based hardware-in-the-loop rover.

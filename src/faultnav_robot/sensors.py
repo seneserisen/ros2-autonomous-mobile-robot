@@ -167,6 +167,43 @@ def body_twist_to_wheel_rates(
     return left_rad_s, right_rad_s
 
 
+def encoder_counts_to_body_twist(
+    previous_left_count: int,
+    previous_right_count: int,
+    current_left_count: int,
+    current_right_count: int,
+    dt_s: float,
+    geometry: RobotGeometry,
+) -> tuple[float, float]:
+    """Convert quantised encoder-count increments to body velocity and yaw rate.
+
+    The returned ordering is ``(linear_velocity_m_s, yaw_rate_rad_s)``. Counts
+    are interpreted using ``geometry.encoder_counts_per_revolution`` over one
+    strictly positive interval. This is the same measurement path used by wheel
+    odometry and does not consume ground truth or pre-quantisation wheel rates.
+    """
+
+    counts = (
+        previous_left_count,
+        previous_right_count,
+        current_left_count,
+        current_right_count,
+    )
+    if not all(isinstance(count, int) and not isinstance(count, bool) for count in counts):
+        raise ValueError("encoder counts must be integers")
+    if not isfinite(dt_s) or dt_s <= 0.0:
+        raise ValueError("dt_s must be finite and positive")
+
+    radians_per_count = 2.0 * pi / geometry.encoder_counts_per_revolution
+    left_wheel_rad_s = (current_left_count - previous_left_count) * radians_per_count / dt_s
+    right_wheel_rad_s = (current_right_count - previous_right_count) * radians_per_count / dt_s
+    left_velocity_m_s = geometry.wheel_radius_m * left_wheel_rad_s
+    right_velocity_m_s = geometry.wheel_radius_m * right_wheel_rad_s
+    linear_velocity_m_s = 0.5 * (left_velocity_m_s + right_velocity_m_s)
+    yaw_rate_rad_s = (right_velocity_m_s - left_velocity_m_s) / geometry.wheel_separation_m
+    return linear_velocity_m_s, yaw_rate_rad_s
+
+
 def _window_active(window: TimeWindow | None, time_s: float) -> bool:
     return window is not None and window.contains(time_s)
 
@@ -250,40 +287,36 @@ def simulate_sensors(
             left_factor *= 1.0 + resolved_config.faults.left_wheel_slip_fraction
             right_factor *= 1.0 + resolved_config.faults.right_wheel_slip_fraction
 
-        measured_left_rad_s = (
-            ideal_left_rad_s * left_factor
-            + rng.normal(0.0, resolved_config.noise.wheel_velocity_std_rad_s)
+        measured_left_rad_s = ideal_left_rad_s * left_factor + rng.normal(
+            0.0, resolved_config.noise.wheel_velocity_std_rad_s
         )
-        measured_right_rad_s = (
-            ideal_right_rad_s * right_factor
-            + rng.normal(0.0, resolved_config.noise.wheel_velocity_std_rad_s)
+        measured_right_rad_s = ideal_right_rad_s * right_factor + rng.normal(
+            0.0, resolved_config.noise.wheel_velocity_std_rad_s
         )
 
         left_count_float += measured_left_rad_s * dt_s * counts_per_rad
         right_count_float += measured_right_rad_s * dt_s * counts_per_rad
         left_count = int(round(left_count_float))
         right_count = int(round(right_count_float))
-        delta_left_count = left_count - previous_left_count
-        delta_right_count = right_count - previous_right_count
+
+        encoder_velocity_m_s, encoder_yaw_rate_rad_s = encoder_counts_to_body_twist(
+            previous_left_count,
+            previous_right_count,
+            left_count,
+            right_count,
+            dt_s,
+            geometry,
+        )
         previous_left_count = left_count
         previous_right_count = right_count
-
-        delta_left_rad = delta_left_count / counts_per_rad
-        delta_right_rad = delta_right_count / counts_per_rad
-        left_distance_m = geometry.wheel_radius_m * delta_left_rad
-        right_distance_m = geometry.wheel_radius_m * delta_right_rad
-        delta_distance_m = 0.5 * (left_distance_m + right_distance_m)
-        delta_yaw_rad = (right_distance_m - left_distance_m) / geometry.wheel_separation_m
         wheel_odom = integrate_twist(
             wheel_odom,
-            delta_distance_m / dt_s,
-            delta_yaw_rad / dt_s,
+            encoder_velocity_m_s,
+            encoder_yaw_rate_rad_s,
             dt_s,
         )
 
-        truth_acceleration_m_s2 = (
-            truth.linear_velocity_m_s - previous_truth_velocity
-        ) / dt_s
+        truth_acceleration_m_s2 = (truth.linear_velocity_m_s - previous_truth_velocity) / dt_s
         previous_truth_velocity = truth.linear_velocity_m_s
 
         if dropout_active:
@@ -367,12 +400,8 @@ def calculate_sensor_metrics(samples: tuple[SensorSample, ...]) -> SensorMetrics
         final_wheel_heading_error_rad=heading_errors[-1],
         max_wheel_position_error_m=max(position_errors),
         max_abs_gyro_error_rad_s=max(gyro_errors, default=0.0),
-        wheel_slip_duration_s=sum(
-            sample.dt_s for sample in samples if sample.wheel_slip_active
-        ),
-        imu_dropout_duration_s=sum(
-            sample.dt_s for sample in samples if sample.imu_dropout_active
-        ),
+        wheel_slip_duration_s=sum(sample.dt_s for sample in samples if sample.wheel_slip_active),
+        imu_dropout_duration_s=sum(sample.dt_s for sample in samples if sample.imu_dropout_active),
         gyro_outlier_duration_s=sum(
             sample.dt_s for sample in samples if sample.gyro_outlier_active
         ),

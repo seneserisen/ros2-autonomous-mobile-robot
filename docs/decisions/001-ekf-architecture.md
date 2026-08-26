@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-07-04
+- Amended: 2026-08-26 — the first encoder update observes count-derived forward body velocity
+  rather than the originally proposed two-wheel-rate vector
 - Decision owner: Sadik Enes Erisen
 - Related issue or milestone: FaultNav state-estimation and fault-monitoring milestone
 
@@ -214,49 +216,48 @@ semi-definiteness within documented tolerances.
 
 ## Encoder measurement model
 
-Encoder updates use count differences or equivalent measured wheel angular-rate inputs. They must
-not use ground truth or the already integrated wheel-odometry pose as measurements.
+Encoder updates use consecutive quantised count differences. They must not use ground truth,
+pre-quantisation simulated wheel rates, fault flags, or the already integrated wheel-odometry pose
+as measurements.
 
 For encoder resolution `N` counts/revolution and interval `T`:
 
 ```text
 delta_count_left  = count_left[k]  - count_left[k-1]
 delta_count_right = count_right[k] - count_right[k-1]
-z_left_rad_s  = 2*pi*delta_count_left  / (N*T)
-z_right_rad_s = 2*pi*delta_count_right / (N*T)
+delta_phi_left  = 2*pi*delta_count_left  / N
+delta_phi_right = 2*pi*delta_count_right / N
 ```
 
-The encoder measurement vector is:
+The count-derived forward body-velocity measurement is:
 
 ```text
-z_encoder = [z_left_rad_s, z_right_rad_s]^T
+z_v = r * (delta_phi_left + delta_phi_right) / (2*T)
 ```
 
-The predicted measurement is:
+The predicted measurement and Jacobian are:
 
 ```text
-h_left  = (v - 0.5*b*yaw_rate) / r
-h_right = (v + 0.5*b*yaw_rate) / r
+h_v(x) = linear_velocity_m_s
+H_v = [[0, 0, 0, 1, 0]]
 ```
 
 where:
 
 - `r` is wheel radius in metres;
-- `b` is wheel separation in metres.
+- `T` is the finite, strictly positive count interval in seconds;
+- `N` is encoder counts per revolution.
 
-The encoder Jacobian is:
-
-```text
-H_encoder = [
-  [0, 0, 0, 1/r, -b/(2*r)],
-  [0, 0, 0, 1/r,  b/(2*r)],
-]
-```
-
-The encoder measurement covariance `R_encoder` has ordering `[left, right]` and units `(rad/s)^2`.
-A full symmetric 2-by-2 matrix is permitted; the core must not assume independent wheel errors.
+The encoder measurement variance `R_v` is scalar with units `(m/s)^2`. It must be finite and
+strictly positive. It is an estimator input independent from the sensor-simulation noise profile.
 
 The first encoder sample establishes previous counts and does not produce an encoder update.
+
+This amendment chooses the scalar forward-velocity observation requested for the focused
+measurement-update milestone. Differential wheel-count information still drives wheel odometry,
+but yaw-rate information is not fused from encoders in this milestone; gyroscope yaw rate is the
+only EKF yaw-rate measurement. A later architecture change would be required to introduce a paired
+wheel-rate update.
 
 ## IMU measurement model
 
@@ -292,7 +293,7 @@ Measurement groups are:
 
 | Group | Dimension | Degrees of freedom |
 |---|---:|---:|
-| Encoder pair | 2 | 2 |
+| Encoder velocity | 1 | 1 |
 | Gyroscope | 1 | 1 |
 
 A singular, non-finite, or non-positive-definite innovation covariance is a numerical error, not a
@@ -320,7 +321,7 @@ Proposed chi-square thresholds:
 | Group | Degrees of freedom | 99% threshold |
 |---|---:|---:|
 | Gyroscope | 1 | 6.635 |
-| Encoder pair | 2 | 9.210 |
+| Encoder velocity | 1 | 6.635 |
 
 Acceptance rule:
 
@@ -340,6 +341,10 @@ Version 1 shall not silently inflate measurement covariance, reset from ground t
 online, blacklist a sensor permanently, or classify a rejected measurement as a proven physical fault.
 
 ## Measurement update
+
+The implemented measurement-update milestone processes every valid finite measurement and exposes
+innovation terms diagnostically. It does not yet calculate NIS or apply the future gating behavior
+described above. Each scalar update uses the same Joseph-form primitive.
 
 For accepted stacked measurements:
 
@@ -402,7 +407,8 @@ Required reference cases before accepting implementation:
 6. Yaw wrapping maps `pi` to `-pi`.
 7. Prediction Jacobian matches central finite differences for straight, turning, negative-yaw-rate, and near-branch cases.
 8. Prediction and update covariance remain finite, symmetric, and positive semi-definite within tolerance.
-9. Encoder geometry reference with `r=0.1 m`, `b=0.4 m`, `v=1.0 m/s`, `yaw_rate=0.5 rad/s` gives left/right wheel rates of `9` and `11 rad/s`.
+9. Encoder count references cover equal counts (straight velocity), zero counts, equal and opposite
+   counts (zero forward velocity), and wheel-radius scaling.
 10. Scalar NIS reference: innovation `2`, covariance `4`, NIS `1`.
 11. Two-dimensional NIS reference: innovation `[1, 2]`, covariance `diag([1, 4])`, NIS `2`.
 12. Measurement exactly at the threshold is accepted.
@@ -416,7 +422,7 @@ Required reference cases before accepting implementation:
 1. Accept this ADR.
 2. Implement ROS-independent prediction core only.
 3. Add analytical prediction, finite-difference Jacobian, and covariance validation tests.
-4. Add encoder and gyroscope measurement updates.
+4. Add encoder and gyroscope measurement updates. **Implemented 2026-08-26.**
 5. Add innovation and NIS monitoring in monitor-only mode.
 6. Add configurable gating as a separate behaviour change.
 7. Add deterministic raw-odometry versus ungated-EKF versus gated-EKF comparison artifacts.

@@ -172,8 +172,11 @@ ROS 2 runtime checks must not be marked complete when only the Python core was t
 - Regression tests: every corrected defect where practical.
 - Numerical reference tests: analytical constant-twist cases and independently calculated wheel geometry.
 - ROS tests: topics, frames, parameters, timeout behavior, and launch configuration when a ROS environment is available.
-- Estimator tests: analytical prediction, finite-difference Jacobians, and covariance properties.
-- Future estimator tests: innovation statistics, measurement rejection, and deterministic comparisons.
+- Estimator tests: analytical prediction, finite-difference Jacobians, independent scalar encoder and
+  gyro updates, Joseph covariance, correlated-state behavior, count-derived measurements, dropout,
+  visible fault innovations, and covariance properties.
+- Future estimator tests: NIS statistics, measurement rejection, estimator orchestration, and
+  deterministic comparison artifacts.
 
 ## CI
 
@@ -195,6 +198,11 @@ CI does not currently prove:
 - hardware behavior;
 - real-world accuracy;
 - security certification.
+
+The current measurement-update tests exercise library functions only. They do not claim ROS runtime
+integration, estimator-report generation, hardware-calibrated covariance, or real-sensor validation.
+Because the update functions are not connected to the existing CLI or artifact pipeline, the seeded
+CSV/JSON reproducibility contract remains unchanged.
 
 ## Baseline failures
 

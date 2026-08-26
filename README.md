@@ -8,12 +8,14 @@ A Python-first ROS 2 engineering project for mobile-robot kinematics, encoder an
 
 The current foundation is implemented and tested: deterministic motion scenarios, simulated
 encoder/IMU measurements, configurable faults, encoder-derived odometry, reports, and a ROS 2
-command-odometry node. Current `main` also includes the first ROS-independent five-state EKF
-prediction layer and local setup, demo, test, and doctor workflows. `v0.3.0` is an internal
+command-odometry node. The ROS-independent five-state EKF now includes prediction plus ungated
+encoder-velocity and gyroscope measurement updates, and the repository provides local setup, demo,
+test, and doctor workflows. `v0.3.0` is an internal
 milestone name, not a published GitHub release or tag.
 
-EKF measurement updates, innovation monitoring, gating, physics simulation, SLAM, Nav2, and
-hardware-in-the-loop remain future milestones. They are not part of the current executable evidence.
+Measurement innovations are returned as diagnostics. NIS monitoring, gating, rejection, estimator
+reports, ROS estimator integration, physics simulation, SLAM, Nav2, and hardware-in-the-loop remain
+future milestones. They are not part of the current executable evidence.
 
 ## Engineering evidence
 
@@ -85,16 +87,22 @@ That baseline validates numerical consistency before encoder resolution, measure
 - nominal, wheel-slip, gyro-bias, and combined-fault profiles;
 - position RMSE, heading RMSE, final error, maximum error, and fault-duration metrics.
 
-### EKF prediction layer
+### EKF prediction and measurement layer
 
 - ROS-independent five-state ordering `[p_x, p_y, yaw, v, yaw_rate]`;
 - exact constant-twist mean propagation with yaw wrapping;
 - analytical straight and turning state-transition Jacobians;
 - configurable continuous acceleration-noise densities and covariance propagation;
 - covariance shape, finite-value, symmetry, and positive-semi-definite checks.
+- forward body-velocity measurements derived from quantised encoder-count increments;
+- scalar gyroscope yaw-rate measurements, with missing samples rejected rather than treated as zero;
+- ROS-independent linear updates with Joseph-form posterior covariance;
+- diagnostic innovation, innovation covariance, Kalman gain, measurement Jacobian, predicted
+  measurement, and actual measurement outputs.
 
-Measurement updates, innovations, NIS gating, estimator reports, and ROS integration remain later
-milestones.
+Every valid measurement is currently processed. NIS calculation, gating, rejection, estimator
+reports, and ROS estimator integration remain later milestones. Measurement variances are explicit
+positive caller inputs and are engineering values, not hardware-calibrated uncertainty models.
 
 ### ROS 2 layer
 
@@ -285,7 +293,8 @@ Automated tests cover:
 - repeated output with the same random seed;
 - wheel-slip odometry degradation;
 - gyro bias, dropout, and outlier reporting;
-- analytical EKF prediction, finite-difference Jacobians, and covariance propagation;
+- analytical EKF prediction, finite-difference Jacobians, scalar measurement updates, correlated
+  covariance behavior, and Joseph-form covariance propagation;
 - CSV, JSON, SVG, and installed-CLI artifact generation.
 
 GitHub Actions validates Python 3.10, 3.11, and 3.12, including both the motion and sensor-fault CLI workflows.
@@ -341,8 +350,7 @@ tests, and published artifacts have been reviewed against the repository require
 
 ### Next — state estimation and fault monitoring
 
-- encoder and gyroscope measurement updates;
-- innovation and Normalized Innovation Squared monitoring;
+- innovation and Normalized Innovation Squared monitoring in monitor-only mode;
 - measurement rejection and fault-detection metrics;
 - raw odometry versus EKF versus fault-aware EKF comparison.
 
@@ -371,6 +379,8 @@ tests, and published artifacts have been reviewed against the repository require
 - Current ROS odometry is still derived from commanded rather than measured wheel motion.
 - Sensor models are controlled simulations and do not yet include actuator dynamics or identified hardware parameters.
 - Wheel-slip distortion is a configurable measurement model rather than a tyre-ground physics model.
+- EKF measurement updates are library functions and are not connected to the CLI, reports, or ROS node.
+- Estimator measurement variances are engineering/test inputs, not calibrated sensor statistics.
 - Published ROS covariance entries remain placeholders.
 - Full physics-simulator and physical-robot integration have not yet been validated.
 - The project is educational portfolio software, not a safety-certified controller.

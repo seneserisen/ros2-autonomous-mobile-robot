@@ -1,6 +1,6 @@
 # FaultNav Project Status
 
-- Last updated: 18 August 2026
+- Last updated: 26 August 2026
 - Current maturity: Portfolio MVP in active development
 - Current documented milestone: `v0.3.0` (not published as a GitHub release or tag)
 - Default branch: `main`
@@ -21,6 +21,10 @@
 - ROS-independent five-state EKF prediction with exact constant-twist mean propagation;
 - analytical state-transition Jacobians and continuous process-noise covariance propagation;
 - covariance shape, finiteness, symmetry, and positive-semi-definite validation;
+- encoder-count-derived forward body-velocity EKF updates in m/s;
+- gyroscope yaw-rate EKF updates in rad/s, with missing measurements rejected rather than zero-filled;
+- diagnostic innovation, innovation covariance, Kalman gain, and measurement-model outputs;
+- Joseph-form posterior covariance with analytical, correlated-state, uncertainty, and fault-boundary tests;
 - Windows and POSIX setup, demo, test, and doctor launchers backed by one tested helper;
 - deterministic one-command combined-fault demo output under `artifacts/demo`;
 - Python unit and integration tests;
@@ -30,8 +34,11 @@
 
 - ROS odometry still integrates commanded motion rather than simulated encoder measurements.
 - ROS covariance values remain placeholders.
-- The EKF currently implements prediction only; measurement updates, innovation monitoring, NIS,
-  gating, and estimator reports are not implemented yet.
+- EKF measurement updates are not yet orchestrated into a continuous estimator, CLI, report, or ROS node.
+- Raw innovations are exposed, but NIS, monitoring summaries, gating, rejection, and fault
+  classification are not implemented.
+- Measurement-noise variances are explicit engineering/test values rather than calibrated hardware
+  statistics.
 - No URDF/Xacro model, physics simulator, SLAM, localisation, or Nav2 integration is validated yet.
 - Sensor and fault parameters are controlled simulations rather than identified hardware statistics.
 - Actuator dynamics, latency, saturation, tyre contact, and physical wheel slip are not modelled.
@@ -44,7 +51,7 @@
 |---|---|---|
 | Python package installation | Automated in CI | `.github/workflows/python-core.yml` |
 | Ruff lint | Automated in CI | Python 3.10–3.12 matrix |
-| Unit tests | Automated in CI | `pytest`, including analytical EKF prediction references |
+| Unit tests | Automated in CI | `pytest`, including analytical EKF prediction and measurement-update references |
 | Ideal-motion CLI artifacts | Automated in CI | CSV, JSON, and SVG existence checks |
 | Combined-fault CLI artifacts | Automated in CI | CSV, JSON, and SVG existence checks |
 | Local workflow helper | Automated in tests | Idempotence fingerprint, commands, artifacts, wrappers |
@@ -59,10 +66,11 @@
 
 ## Highest-priority next engineering tasks
 
-1. Add encoder and gyroscope measurement updates with analytical references and Joseph covariance form.
-2. Add innovation statistics in monitor-only mode.
-3. Add Normalized Innovation Squared monitoring and configurable measurement rejection.
-4. Compare raw wheel odometry, nominal EKF, and fault-aware EKF using reproducible experiments and reports.
+1. Add Normalized Innovation Squared diagnostics in monitor-only mode without rejection.
+2. Add configurable measurement rejection as a separate behavior change.
+3. Build deterministic estimator orchestration and compare raw wheel odometry, ungated EKF, and
+   later fault-aware EKF using reproducible experiments and reports.
+4. Add a thin ROS 2 estimator adapter only after deterministic comparison evidence is accepted.
 
 ## Risks and technical debt
 
